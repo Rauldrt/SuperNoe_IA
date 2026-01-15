@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gem Custom Runner</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'media', // Automático basado en el sistema
+        theme: {
+          extend: {
+            transitionTimingFunction: {
+              'spring': 'cubic-bezier(0.175, 0.885, 0.32, 1.275)', // Rebote elástico
+              'emphasis': 'cubic-bezier(0.2, 0.0, 0, 1.0)', // Material Design 3 Emphasized
+            },
+            colors: {
+              brand: {
+                50: '#fdf2f8',
+                100: '#fce7f3',
+                200: '#fbcfe8',
+                300: '#f9a8d4',
+                400: '#f472b6',
+                500: '#ec4899', // Pink base
+                600: '#db2777', // Pink fuerte
+                700: '#be185d',
+                800: '#9d174d',
+                900: '#831843',
+              },
+              sepia: {
+                500: '#704214', // Classic Sepia
+                400: '#8a5a2a',
+              }
+            },
+            animation: {
+              'blob': 'blob 7s infinite',
+            },
+            keyframes: {
+              blob: {
+                '0%': { transform: 'translate(0px, 0px) scale(1)' },
+                '33%': { transform: 'translate(30px, -50px) scale(1.1)' },
+                '66%': { transform: 'translate(-20px, 20px) scale(0.9)' },
+                '100%': { transform: 'translate(0px, 0px) scale(1)' },
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+      body {
+        font-family: 'Inter', sans-serif;
+        /* Default to light mode basics, let Tailwind handle the rest */
+        background-color: #f8fafc; 
+        color: #1e293b;
+      }
+      @media (prefers-color-scheme: dark) {
+        body {
+          background-color: #0f172a;
+          color: #e2e8f0;
+        }
+      }
+      
+      /* Custom Scrollbar */
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent; 
+      }
+      ::-webkit-scrollbar-thumb {
+        background: rgba(236, 72, 153, 0.2); /* Brand pink low opacity */
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: rgba(236, 72, 153, 0.5); 
+      }
+
+      /* --- TABLE STYLES FOR RAG RESPONSES --- */
+      /* Esto asegura que las tablas generadas por Markdown se vean claras y estructuradas */
+      .prose table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        margin-top: 1.5rem;
+        margin-bottom: 1.5rem;
+        border-radius: 8px;
+        overflow: hidden;
+        border: 1px solid #e2e8f0; /* Light border */
+      }
+      .dark .prose table {
+        border-color: rgba(255,255,255,0.1);
+      }
+
+      .prose th {
+        background-color: rgba(236, 72, 153, 0.05); /* Brand tint */
+        padding: 12px 16px;
+        text-align: left;
+        font-weight: 600;
+        font-size: 0.9em;
+        text-transform: uppercase;
+        color: #831843; /* Brand 900 */
+        border-bottom: 2px solid #fbcfe8;
+      }
+      .dark .prose th {
+        background-color: rgba(236, 72, 153, 0.1);
+        color: #fce7f3;
+        border-bottom: 2px solid rgba(255,255,255,0.1);
+      }
+
+      .prose td {
+        padding: 10px 16px;
+        border-bottom: 1px solid #f1f5f9;
+        font-size: 0.95em;
+        line-height: 1.5;
+      }
+      .dark .prose td {
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+      }
+
+      /* Zebra striping for rows to help readability */
+      .prose tr:nth-child(even) {
+        background-color: rgba(255,255,255,0.5);
+      }
+      .dark .prose tr:nth-child(even) {
+        background-color: rgba(255,255,255,0.02);
+      }
+      
+      .prose tr:last-child td {
+        border-bottom: none;
+      }
+
+      /* --- AURORA ANIMATIONS --- */
+      @keyframes aurora-gradient {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+      }
+
+      /* Clase base para contenedores que tendrán el efecto */
+      .aurora-container {
+        position: relative;
+        z-index: 0;
+      }
+
+      /* El efecto Glow detrás del elemento */
+      .aurora-container::before {
+        content: "";
+        position: absolute;
+        inset: -2px;
+        z-index: -1;
+        background: linear-gradient(
+          45deg, 
+          #ec4899, /* Brand 500 */
+          #a855f7, /* Purple 500 */
+          #ec4899, /* Brand 500 */
+          #db2777  /* Brand 600 */
+        );
+        background-size: 300% 300%;
+        animation: aurora-gradient 4s ease infinite;
+        border-radius: inherit; /* Hereda el border-radius del padre */
+        opacity: 0;
+        transition: opacity 0.5s ease;
+        filter: blur(8px); /* El difuminado clave para el efecto aurora */
+      }
+
+      /* Activar en Hover */
+      .aurora-container:hover::before {
+        opacity: 0.7; /* Brillo en hover */
+      }
+      
+      /* Activar cuando un input dentro tiene foco */
+      .aurora-container:focus-within::before {
+        opacity: 0.8;
+      }
+
+      /* Activar siempre (para botones principales o estados activos) */
+      .aurora-container.aurora-always::before {
+        opacity: 0.6;
+        filter: blur(6px);
+      }
+      .aurora-container.aurora-always:hover::before {
+        opacity: 1;
+        filter: blur(8px);
+      }
+      
+      /* Botón con gradiente animado interno */
+      .btn-aurora {
+         background: linear-gradient(90deg, #ec4899, #be185d, #ec4899);
+         background-size: 200% auto;
+         animation: aurora-gradient 3s linear infinite;
+         border: none;
+         color: white;
+      }
+      .btn-aurora:hover {
+        background-position: right center;
+      }
+
+      /* --- THINKING ANIMATION (SEPIA) --- */
+      @keyframes thinking-sepia {
+        0%, 100% {
+          box-shadow: 0 0 0 0px rgba(112, 66, 20, 0);
+          transform: scale(1);
+        }
+        50% {
+          /* Sepia shadow glow */
+          box-shadow: 0 0 20px 2px rgba(112, 66, 20, 0.4); 
+          transform: scale(1.05);
+        }
+      }
+
+      .animate-thinking {
+        animation: thinking-sepia 2s infinite ease-in-out;
+      }
+
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react-markdown": "https://esm.sh/react-markdown@^10.1.0",
+    "@google/genai": "https://esm.sh/@google/genai@^1.36.0",
+    "lucide-react": "https://esm.sh/lucide-react@^0.562.0"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
