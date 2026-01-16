@@ -7,12 +7,12 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
-        darkMode: 'media', // Automático basado en el sistema
+        darkMode: 'media',
         theme: {
           extend: {
             transitionTimingFunction: {
-              'spring': 'cubic-bezier(0.175, 0.885, 0.32, 1.275)', // Rebote elástico
-              'emphasis': 'cubic-bezier(0.2, 0.0, 0, 1.0)', // Material Design 3 Emphasized
+              'spring': 'cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+              'emphasis': 'cubic-bezier(0.2, 0.0, 0, 1.0)',
             },
             colors: {
               brand: {
@@ -21,14 +21,14 @@
                 200: '#fbcfe8',
                 300: '#f9a8d4',
                 400: '#f472b6',
-                500: '#ec4899', // Pink base
-                600: '#db2777', // Pink fuerte
+                500: '#ec4899',
+                600: '#db2777',
                 700: '#be185d',
                 800: '#9d174d',
                 900: '#831843',
               },
               sepia: {
-                500: '#704214', // Classic Sepia
+                500: '#704214',
                 400: '#8a5a2a',
               }
             },
@@ -51,7 +51,6 @@
     <style>
       body {
         font-family: 'Inter', sans-serif;
-        /* Default to light mode basics, let Tailwind handle the rest */
         background-color: #f8fafc; 
         color: #1e293b;
       }
@@ -61,8 +60,6 @@
           color: #e2e8f0;
         }
       }
-      
-      /* Custom Scrollbar */
       ::-webkit-scrollbar {
         width: 8px;
         height: 8px;
@@ -71,15 +68,12 @@
         background: transparent; 
       }
       ::-webkit-scrollbar-thumb {
-        background: rgba(236, 72, 153, 0.2); /* Brand pink low opacity */
+        background: rgba(236, 72, 153, 0.2);
         border-radius: 4px;
       }
       ::-webkit-scrollbar-thumb:hover {
         background: rgba(236, 72, 153, 0.5); 
       }
-
-      /* --- TABLE STYLES FOR RAG RESPONSES --- */
-      /* Esto asegura que las tablas generadas por Markdown se vean claras y estructuradas */
       .prose table {
         width: 100%;
         border-collapse: separate;
@@ -88,20 +82,19 @@
         margin-bottom: 1.5rem;
         border-radius: 8px;
         overflow: hidden;
-        border: 1px solid #e2e8f0; /* Light border */
+        border: 1px solid #e2e8f0;
       }
       .dark .prose table {
         border-color: rgba(255,255,255,0.1);
       }
-
       .prose th {
-        background-color: rgba(236, 72, 153, 0.05); /* Brand tint */
+        background-color: rgba(236, 72, 153, 0.05);
         padding: 12px 16px;
         text-align: left;
         font-weight: 600;
         font-size: 0.9em;
         text-transform: uppercase;
-        color: #831843; /* Brand 900 */
+        color: #831843;
         border-bottom: 2px solid #fbcfe8;
       }
       .dark .prose th {
@@ -109,7 +102,6 @@
         color: #fce7f3;
         border-bottom: 2px solid rgba(255,255,255,0.1);
       }
-
       .prose td {
         padding: 10px 16px;
         border-bottom: 1px solid #f1f5f9;
@@ -119,33 +111,24 @@
       .dark .prose td {
         border-bottom: 1px solid rgba(255,255,255,0.05);
       }
-
-      /* Zebra striping for rows to help readability */
       .prose tr:nth-child(even) {
         background-color: rgba(255,255,255,0.5);
       }
       .dark .prose tr:nth-child(even) {
         background-color: rgba(255,255,255,0.02);
       }
-      
       .prose tr:last-child td {
         border-bottom: none;
       }
-
-      /* --- AURORA ANIMATIONS --- */
       @keyframes aurora-gradient {
         0% { background-position: 0% 50%; }
         50% { background-position: 100% 50%; }
         100% { background-position: 0% 50%; }
       }
-
-      /* Clase base para contenedores que tendrán el efecto */
       .aurora-container {
         position: relative;
         z-index: 0;
       }
-
-      /* El efecto Glow detrás del elemento */
       .aurora-container::before {
         content: "";
         position: absolute;
@@ -153,30 +136,24 @@
         z-index: -1;
         background: linear-gradient(
           45deg, 
-          #ec4899, /* Brand 500 */
-          #a855f7, /* Purple 500 */
-          #ec4899, /* Brand 500 */
-          #db2777  /* Brand 600 */
+          #ec4899,
+          #a855f7,
+          #ec4899,
+          #db2777
         );
         background-size: 300% 300%;
         animation: aurora-gradient 4s ease infinite;
-        border-radius: inherit; /* Hereda el border-radius del padre */
+        border-radius: inherit;
         opacity: 0;
         transition: opacity 0.5s ease;
-        filter: blur(8px); /* El difuminado clave para el efecto aurora */
+        filter: blur(8px);
       }
-
-      /* Activar en Hover */
       .aurora-container:hover::before {
-        opacity: 0.7; /* Brillo en hover */
+        opacity: 0.7;
       }
-      
-      /* Activar cuando un input dentro tiene foco */
       .aurora-container:focus-within::before {
         opacity: 0.8;
       }
-
-      /* Activar siempre (para botones principales o estados activos) */
       .aurora-container.aurora-always::before {
         opacity: 0.6;
         filter: blur(6px);
@@ -185,8 +162,6 @@
         opacity: 1;
         filter: blur(8px);
       }
-      
-      /* Botón con gradiente animado interno */
       .btn-aurora {
          background: linear-gradient(90deg, #ec4899, #be185d, #ec4899);
          background-size: 200% auto;
@@ -197,24 +172,19 @@
       .btn-aurora:hover {
         background-position: right center;
       }
-
-      /* --- THINKING ANIMATION (SEPIA) --- */
       @keyframes thinking-sepia {
         0%, 100% {
           box-shadow: 0 0 0 0px rgba(112, 66, 20, 0);
           transform: scale(1);
         }
         50% {
-          /* Sepia shadow glow */
           box-shadow: 0 0 20px 2px rgba(112, 66, 20, 0.4); 
           transform: scale(1.05);
         }
       }
-
       .animate-thinking {
         animation: thinking-sepia 2s infinite ease-in-out;
       }
-
     </style>
   <script type="importmap">
 {
@@ -224,7 +194,10 @@
     "react/": "https://esm.sh/react@^19.2.3/",
     "react-markdown": "https://esm.sh/react-markdown@^10.1.0",
     "@google/genai": "https://esm.sh/@google/genai@^1.36.0",
-    "lucide-react": "https://esm.sh/lucide-react@^0.562.0"
+    "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
+    "firebase/app": "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js",
+    "firebase/firestore": "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js",
+    "firebase/": "https://esm.sh/firebase@^12.8.0/"
   }
 }
 </script>

@@ -1,4 +1,4 @@
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 import { AppConfig, REASONING_MODEL } from "../types";
 
 // NOTA: Siguiendo las instrucciones del sistema, la API Key se toma exclusivamente de process.env.API_KEY

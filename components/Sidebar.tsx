@@ -2,8 +2,8 @@ import React, { useState, useRef } from 'react';
 import { useGemini } from '../context/GeminiContext';
 import { 
   Settings, Database, Upload, Trash2, FileText, 
-  Cpu, Search, X, FileSpreadsheet,
-  ShieldCheck, ShieldAlert, Menu, Sparkles
+  Search, X, FileSpreadsheet,
+  ShieldCheck, ShieldAlert, Menu, Sparkles, Cloud, Wifi
 } from 'lucide-react';
 import { REASONING_MODEL, DEFAULT_MODEL } from '../types';
 
@@ -16,7 +16,11 @@ interface SidebarProps {
 // CONTENIDO INTERNO REUTILIZABLE (Desktop & Mobile)
 // ----------------------------------------------------------------------
 const SidebarContent: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
-    const { documents, addDocument, removeDocument, config, updateConfig, addToast } = useGemini();
+    const { 
+      documents, addDocument, removeDocument, 
+      config, updateConfig, addToast
+    } = useGemini();
+    
     const [activeTab, setActiveTab] = useState<'docs' | 'config'>('config');
     const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -76,6 +80,12 @@ const SidebarContent: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
                 )}
             </div>
 
+            {/* Status Bar */}
+            <div className="px-6 py-2 bg-emerald-50 dark:bg-emerald-900/10 flex items-center justify-center gap-2 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                <Wifi size={12} />
+                <span>Conectado a Nube Compartida</span>
+            </div>
+
             {/* Tabs */}
             <div className="flex p-2 gap-2 border-b border-gray-100 dark:border-white/10 shrink-0">
                 <button 
@@ -104,6 +114,7 @@ const SidebarContent: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
             <div className="flex-1 overflow-y-auto p-4 space-y-6">
                 {activeTab === 'config' && (
                     <div className="space-y-6 animate-fade-in">
+                        
                         {/* RAG Strategy */}
                         <div className="space-y-2">
                             <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Estrategia</label>
@@ -172,12 +183,19 @@ const SidebarContent: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
                     <div className="space-y-4 animate-fade-in">
                         <div 
                             onClick={() => fileInputRef.current?.click()}
-                            className="border-2 border-dashed border-gray-300 dark:border-white/20 bg-gray-50 dark:bg-slate-900 rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer hover:border-brand-500 hover:bg-brand-50/50 transition-all"
+                            className="border-2 border-dashed border-gray-300 dark:border-white/20 bg-gray-50 dark:bg-slate-900 rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer hover:border-brand-500 hover:bg-brand-50/50 transition-all group"
                         >
-                            <Upload size={24} className="text-gray-400 mb-2" />
-                            <span className="text-sm text-gray-500">Subir .csv, .txt</span>
+                            <Cloud size={32} className="text-gray-400 mb-2 group-hover:text-brand-500 transition-colors" />
+                            <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">Subir a la Nube</span>
+                            <span className="text-xs text-gray-500 mt-1">Todos los usuarios verán esto</span>
                             <input type="file" multiple ref={fileInputRef} className="hidden" accept=".txt,.md,.csv,text/plain,text/csv" onChange={handleFileUpload} />
                         </div>
+
+                        {documents.length === 0 && (
+                          <div className="text-center text-gray-400 py-4 text-xs">
+                             La base de conocimientos compartida está vacía.
+                          </div>
+                        )}
 
                         <div className="space-y-2">
                             {documents.map(doc => (
@@ -186,7 +204,7 @@ const SidebarContent: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
                                         <div className="text-brand-500">{getFileIcon(doc.title)}</div>
                                         <div className="flex flex-col truncate">
                                             <span className="text-sm font-medium truncate">{doc.title}</span>
-                                            <span className="text-[10px] text-gray-400">{doc.tokensEstimated} tokens</span>
+                                            <span className="text-[10px] text-gray-400">{doc.tokensEstimated} tokens • Nube</span>
                                         </div>
                                     </div>
                                     <button onClick={(e) => { e.stopPropagation(); removeDocument(doc.id); }} className="text-gray-400 hover:text-red-500">
@@ -213,8 +231,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
         ========================================
         MOBILE: CONTAINER TRANSFORM (FAB -> MODAL)
         ========================================
-        Este único DIV actúa como el FAB (cuando isOpen=false) 
-        y como el Modal (cuando isOpen=true).
       */}
       <div 
         onClick={() => !isOpen && setIsOpen(true)}
@@ -228,12 +244,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
             }
         `}
       >
-        {/* State 1: FAB Icon (Solo visible si cerrado) */}
         <div className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${isOpen ? 'opacity-0 pointer-events-none' : 'opacity-100 delay-100'}`}>
             <Menu className="text-white" strokeWidth={2.5} size={24} />
         </div>
-
-        {/* State 2: Modal Content (Solo visible si abierto) */}
         <div className={`absolute inset-0 w-full h-full transition-opacity duration-300 ${isOpen ? 'opacity-100 delay-100' : 'opacity-0 pointer-events-none'}`}>
              <SidebarContent onClose={() => setIsOpen(false)} />
         </div>
@@ -254,7 +267,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
           ${isOpen ? 'translate-x-0' : '-translate-x-full'}
         `}
       >
-         <SidebarContent /> {/* Sin onClose porque en desktop se maneja diferente */}
+         <SidebarContent /> 
       </aside>
     </>
   );
