@@ -1,14 +1,17 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useGemini } from '../context/GeminiContext';
 import { 
   Trash2, X, Wifi, Menu, Sparkles,
   Clock, Plus, MessageSquare, Lock, Unlock,
   Settings, Database, Cloud, FileSpreadsheet, FileText,
   ShieldCheck, ShieldAlert, Search, LogOut, KeyRound,
-  Sun, Moon, Monitor, HardDrive, RefreshCw
+  Sun, Moon, Monitor, HardDrive, RefreshCw, Download, UploadCloud, Link, Save, Globe, FileJson, Copy, Table
 } from 'lucide-react';
-import { DEFAULT_MODEL, REASONING_MODEL, Theme } from '../types';
+import { DEFAULT_MODEL, REASONING_MODEL, Theme, KnowledgeDocument } from '../types';
+
+// Declare google global for GSI
+declare const google: any;
 
 interface SidebarProps {
   isOpen: boolean;
@@ -23,7 +26,7 @@ const SidebarContent: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
       sessions, activeSessionId, loadSession, deleteSession, createNewChat, clearHistory,
       isAdminMode, loginAdmin, logoutAdmin,
       documents, addDocument, removeDocument, config, updateConfig, addToast,
-      theme, setTheme, refreshSystemKnowledge, isLoadingKnowledge
+      theme, setTheme, setSystemKnowledge
     } = useGemini();
 
     const [activeTab, setActiveTab] = useState<'history' | 'docs' | 'config'>('history');
@@ -31,6 +34,11 @@ const SidebarContent: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
     const [passwordInput, setPasswordInput] = useState('');
     const fileInputRef = useRef<HTMLInputElement>(null);
     
+    // Google Sheets State
+    const [sheetsToken, setSheetsToken] = useState<string | null>(null);
+    const [isSheetLoading, setIsSheetLoading] = useState(false);
+    const [sheetUser, setSheetUser] = useState<string | null>(null);
+
     const handleNewChat = () => {
         createNewChat();
         if (window.innerWidth < 768 && onClose) onClose();
@@ -65,7 +73,6 @@ const SidebarContent: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
             setPasswordInput('');
             setActiveTab('config');
         }
-        // loginAdmin handles the error toast
     };
 
     const cycleTheme = () => {
@@ -83,26 +90,7 @@ const SidebarContent: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
         }
     };
 
-    const handleRefreshData = async () => {
-        await refreshSystemKnowledge();
-        addToast('success', 'Base de datos sincronizada.');
-    };
-
-    // --- Admin Logic for Docs ---
-    const processCSVToMarkdown = (csvText: string): string => {
-        const lines = csvText.split(/\r?\n/).map(l => l.trim()).filter(line => line.length > 0);
-        if (lines.length === 0) return csvText;
-        const headers = lines[0].split(',').map(h => h.trim());
-        const separator = headers.map(() => '---');
-        let markdownTable = `| ${headers.join(' | ')} |\n| ${separator.join(' | ')} |`;
-        for (let i = 1; i < lines.length; i++) {
-            const cells = lines[i].split(',').map(c => c.trim());
-            while (cells.length < headers.length) cells.push(''); 
-            markdownTable += `\n| ${cells.join(' | ')} |`;
-        }
-        return markdownTable;
-    };
-    
+    // --- Local File Logic ---
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files;
         if (!files) return;
@@ -111,10 +99,7 @@ const SidebarContent: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
           const file = files[i];
           const fileNameLower = file.name.toLowerCase();
           try {
-            let text = await file.text();
-            if (fileNameLower.endsWith('.csv') || file.type === 'text/csv') {
-               text = processCSVToMarkdown(text);
-            }
+            const text = await file.text();
             addDocument(file.name, text);
           } catch (err) {
             addToast('error', `Error al leer el archivo: ${file.name}`);
@@ -128,7 +113,133 @@ const SidebarContent: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
         return <FileText size={16} />;
     };
 
-    // Sort sessions by date desc
+    // --- GOOGLE SHEETS LOGIC (CMS) ---
+
+    // 1. Authenticate with Google Sheets scope
+    const handleSheetsAuth = () => {
+        if (!config.googleSheets.clientId) {
+            addToast('error', 'Falta Client ID en Configuración.');
+            return;
+        }
+
+        try {
+            const client = google.accounts.oauth2.initTokenClient({
+                client_id: config.googleSheets.clientId,
+                scope: 'https://www.googleapis.com/auth/spreadsheets.readonly https://www.googleapis.com/auth/userinfo.email',
+                callback: (response: any) => {
+                    if (response.access_token) {
+                        setSheetsToken(response.access_token);
+                        addToast('success', 'Conectado a Google.');
+                        // Get user email
+                        fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                            headers: { Authorization: `Bearer ${response.access_token}` }
+                        })
+                        .then(res => res.json())
+                        .then(data => setSheetUser(data.email))
+                        .catch(() => setSheetUser('Usuario Google'));
+                    }
+                },
+            });
+            client.requestAccessToken();
+        } catch (e) {
+            addToast('error', 'Error al inicializar Google Auth.');
+        }
+    };
+
+    // 2. Fetch and Sync Data
+    const handleSheetSync = async () => {
+        if (!sheetsToken) return handleSheetsAuth();
+        if (!config.googleSheets.spreadsheetId) {
+            addToast('error', 'Falta el ID de la Hoja de Cálculo.');
+            return;
+        }
+
+        setIsSheetLoading(true);
+        const spreadsheetId = config.googleSheets.spreadsheetId;
+
+        try {
+            // A. Fetch "Conocimiento" (Products, Prices, etc.)
+            // Assumption: Tab name 'Conocimiento', Col A=Title, Col B=Content
+            const knowledgeRes = await fetch(
+                `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/Conocimiento!A2:B`, 
+                { headers: { Authorization: `Bearer ${sheetsToken}` } }
+            );
+            
+            if (knowledgeRes.ok) {
+                const data = await knowledgeRes.json();
+                const rows = data.values || [];
+                
+                if (rows.length > 0) {
+                    const newDocs: KnowledgeDocument[] = rows.map((row: string[], idx: number) => ({
+                        id: `sheet-doc-${idx}`,
+                        title: row[0] || 'Sin Título',
+                        content: row[1] || '',
+                        addedAt: Date.now(),
+                        tokensEstimated: Math.ceil((row[1]?.length || 0) / 4),
+                        isSystem: true
+                    })).filter((d: KnowledgeDocument) => d.content.length > 0);
+
+                    setSystemKnowledge(newDocs);
+                    addToast('success', `Se sincronizaron ${newDocs.length} documentos.`);
+                } else {
+                    addToast('info', 'La pestaña "Conocimiento" está vacía o no existe.');
+                }
+            } else {
+                console.warn('Error fetching Conocimiento tab', await knowledgeRes.text());
+            }
+
+            // B. Fetch "Configuracion" (App Settings)
+            // Assumption: Tab name 'Configuracion', Col A=Key, Col B=Value
+            const configRes = await fetch(
+                `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/Configuracion!A2:B`,
+                { headers: { Authorization: `Bearer ${sheetsToken}` } }
+            );
+
+            if (configRes.ok) {
+                const data = await configRes.json();
+                const rows = data.values || [];
+                const updates: any = {};
+                let updatedCount = 0;
+
+                rows.forEach((row: string[]) => {
+                    const key = row[0]?.trim();
+                    const val = row[1]?.trim();
+                    if (!key || !val) return;
+
+                    if (key === 'systemInstructions') updates.systemInstructions = val;
+                    if (key === 'model') updates.model = val;
+                    if (key === 'strictMode') updates.strictMode = val.toLowerCase() === 'true';
+                    if (key === 'useSearchGrounding') updates.useSearchGrounding = val.toLowerCase() === 'true';
+                    updatedCount++;
+                });
+
+                if (updatedCount > 0) {
+                    updateConfig(updates);
+                    addToast('success', `Configuración actualizada (${updatedCount} valores).`);
+                }
+            }
+
+        } catch (error: any) {
+            console.error(error);
+            addToast('error', 'Error de sincronización: ' + error.message);
+        } finally {
+            setIsSheetLoading(false);
+        }
+    };
+
+    const handleDownloadJSON = () => {
+        const jsonString = JSON.stringify(documents, null, 2);
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        const href = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = href;
+        link.download = `knowledge-backup-${Date.now()}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        addToast('success', 'Backup descargado correctamente.');
+    };
+
     const sortedSessions = [...sessions].sort((a, b) => b.updatedAt - a.updatedAt);
 
     return (
@@ -154,21 +265,17 @@ const SidebarContent: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
                 )}
             </div>
 
-            {/* Status Bar with Refresh */}
+            {/* Status Bar */}
             <div className={`px-6 py-2 flex items-center justify-between text-xs font-medium border-b border-gray-100 dark:border-white/5 ${isAdminMode ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400' : 'bg-emerald-50 dark:bg-emerald-900/10 text-emerald-600 dark:text-emerald-400'}`}>
                 <div className="flex items-center gap-2">
                     {isAdminMode ? <ShieldCheck size={12} /> : <Wifi size={12} />}
                     <span>{isAdminMode ? 'Superusuario' : 'Sincronizado'}</span>
                 </div>
-                <button 
-                    onClick={handleRefreshData}
-                    disabled={isLoadingKnowledge}
-                    className={`flex items-center gap-1 hover:underline disabled:opacity-50 ${isLoadingKnowledge ? 'animate-pulse' : ''}`}
-                    title="Forzar actualización de datos remotos"
-                >
-                    <RefreshCw size={10} className={isLoadingKnowledge ? 'animate-spin' : ''} />
-                    {isLoadingKnowledge ? 'Cargando...' : 'Actualizar'}
-                </button>
+                {sheetsToken && (
+                    <span className="text-[10px] bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 px-2 py-0.5 rounded-full">
+                        Sheets OK
+                    </span>
+                )}
             </div>
 
             {/* NEW CHAT BUTTON */}
@@ -326,6 +433,46 @@ const SidebarContent: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
                 {/* --- CONFIG TAB (Admin Only) --- */}
                 {isAdminMode && activeTab === 'config' && (
                     <div className="space-y-6 animate-fade-in pt-2">
+                        {/* Google Sheets Config */}
+                        <div className="space-y-4 border-b border-gray-100 dark:border-white/5 pb-4">
+                            <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase flex items-center gap-1">
+                                <Table size={12} /> Google Sheets CMS
+                            </label>
+
+                            <div className="space-y-2">
+                                <input 
+                                    type="text"
+                                    value={config.googleSheets.clientId}
+                                    onChange={(e) => updateConfig({ googleSheets: { ...config.googleSheets, clientId: e.target.value } })}
+                                    placeholder="Client ID (Google Cloud)"
+                                    className="w-full bg-white dark:bg-slate-800 border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs focus:ring-2 ring-brand-500 outline-none font-mono text-gray-600 dark:text-gray-300"
+                                />
+                                {/* Helper Copy Origin */}
+                                <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-100 dark:border-blue-900/30 text-[10px] text-blue-800 dark:text-blue-200 break-all flex items-center justify-between">
+                                    <span 
+                                        className="font-mono cursor-pointer hover:underline truncate"
+                                        onClick={() => { navigator.clipboard.writeText(window.location.origin); addToast('info', 'Origen copiado'); }}
+                                    >
+                                        {window.location.origin}
+                                    </span>
+                                    <Copy size={10} />
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <input 
+                                    type="text"
+                                    value={config.googleSheets.spreadsheetId}
+                                    onChange={(e) => updateConfig({ googleSheets: { ...config.googleSheets, spreadsheetId: e.target.value } })}
+                                    placeholder="Spreadsheet ID (Ej: 1A2b3C...)"
+                                    className="w-full bg-white dark:bg-slate-800 border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs focus:ring-2 ring-brand-500 outline-none font-mono text-gray-600 dark:text-gray-300"
+                                />
+                                <p className="text-[9px] text-gray-400">
+                                    Debe tener pestañas: <code>Conocimiento</code> y <code>Configuracion</code>.
+                                </p>
+                            </div>
+                        </div>
+
                         {/* RAG Strategy */}
                         <div className="space-y-2">
                             <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Estrategia</label>
@@ -393,6 +540,7 @@ const SidebarContent: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
                 {/* --- DOCS TAB (Admin Only) --- */}
                 {isAdminMode && activeTab === 'docs' && (
                     <div className="space-y-4 animate-fade-in pt-2">
+                        {/* 1. Upload Section */}
                         <div 
                             onClick={() => fileInputRef.current?.click()}
                             className="border-2 border-dashed border-gray-300 dark:border-white/20 bg-gray-50 dark:bg-slate-900 rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer hover:border-brand-500 hover:bg-brand-50/50 transition-all group"
@@ -403,13 +551,13 @@ const SidebarContent: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
                             <input type="file" multiple ref={fileInputRef} className="hidden" accept=".txt,.md,.csv,text/plain,text/csv" onChange={handleFileUpload} />
                         </div>
 
-                        {documents.length === 0 && (
-                          <div className="text-center text-gray-400 py-4 text-xs">
-                             La base de conocimientos está vacía.
-                          </div>
-                        )}
-
-                        <div className="space-y-2">
+                        {/* 2. Documents List */}
+                        <div className="space-y-2 max-h-[25vh] overflow-y-auto custom-scrollbar">
+                            {documents.length === 0 && (
+                                <div className="text-center text-gray-400 py-4 text-xs">
+                                    La base de conocimientos está vacía.
+                                </div>
+                            )}
                             {documents.map(doc => (
                                 <div key={doc.id} className={`flex items-center justify-between p-3 rounded-lg border ${doc.isSystem ? 'bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-500/20' : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-white/5'}`}>
                                     <div className="flex items-center gap-3 overflow-hidden">
@@ -431,6 +579,57 @@ const SidebarContent: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
                                     )}
                                 </div>
                             ))}
+                        </div>
+                        
+                        {/* 3. Sync Cloud Section (Google Sheets) */}
+                        <div className="border-t border-gray-100 dark:border-white/10 pt-4 mt-4 space-y-3">
+                            <h4 className="text-xs font-bold text-gray-500 uppercase flex items-center gap-1">
+                                <Table size={12} /> Google Sheets Sync
+                            </h4>
+                            
+                            {/* Auth Status */}
+                            {!sheetsToken ? (
+                                <button 
+                                    onClick={handleSheetsAuth}
+                                    className="w-full flex items-center justify-center gap-2 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-bold transition-all shadow-md"
+                                >
+                                    <Table size={14} />
+                                    Conectar Google Sheets
+                                </button>
+                            ) : (
+                                <div className="space-y-3">
+                                     <div className="flex items-center justify-between px-3 py-2 bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-900/30 rounded-lg text-xs">
+                                        <span className="flex items-center gap-2 text-green-700 dark:text-green-300">
+                                            <img src="https://upload.wikimedia.org/wikipedia/commons/3/30/Google_Sheets_logo_%282014-2020%29.svg" alt="Sheets" className="w-3 h-3" />
+                                            {sheetUser || 'Conectado'}
+                                        </span>
+                                        <button onClick={() => setSheetsToken(null)} className="text-[10px] text-green-500 hover:underline">Desconectar</button>
+                                     </div>
+
+                                     <button 
+                                        onClick={handleSheetSync}
+                                        disabled={isSheetLoading}
+                                        className="w-full flex items-center justify-center gap-1.5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-medium transition-all shadow-lg shadow-brand-500/20"
+                                        title="Leer Conocimiento y Configuración de Sheets"
+                                     >
+                                        {isSheetLoading ? <RefreshCw size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                                        Sincronizar Todo
+                                     </button>
+
+                                     <p className="text-[9px] text-gray-400 text-center leading-relaxed">
+                                         Lee pestañas: <b>Conocimiento</b> (Col A: Título, B: Contenido) y <b>Configuracion</b> (Col A: Clave, B: Valor).
+                                     </p>
+                                </div>
+                            )}
+
+                             {/* Manual Local Download (Fallback) */}
+                             <button 
+                                onClick={handleDownloadJSON}
+                                className="w-full flex items-center justify-center gap-2 py-2 mt-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-[10px] transition-colors"
+                            >
+                                <FileJson size={12} />
+                                Exportar Local (.json)
+                            </button>
                         </div>
                     </div>
                 )}
@@ -465,57 +664,47 @@ const SidebarContent: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
     );
 };
 
-// ----------------------------------------------------------------------
-// MAIN COMPONENT (Mobile Transform + Desktop Sidebar)
-// ----------------------------------------------------------------------
-
+// --- MAIN SIDEBAR COMPONENT (Responsive Wrapper) ---
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
   return (
     <>
-      {/* 
-        ========================================
-        MOBILE: CONTAINER TRANSFORM (FAB -> MODAL)
-        ========================================
-      */}
+      {/* Mobile Overlay */}
       <div 
-        onClick={() => !isOpen && setIsOpen(true)}
+        className={`fixed inset-0 z-40 bg-black/50 backdrop-blur-sm transition-opacity md:hidden ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        onClick={() => setIsOpen(false)}
+      />
+
+      {/* Sidebar Container - UPDATED FOR FLOATING CARD LOOK */}
+      <div 
         className={`
-            md:hidden fixed z-50 
-            transition-all duration-500 ease-emphasis
-            shadow-2xl overflow-hidden
-            ${isOpen 
-                ? 'inset-2 rounded-[28px] bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-gray-200 dark:border-white/10' 
-                : 'bottom-6 right-6 w-14 h-14 rounded-2xl bg-gradient-to-br from-brand-500 to-rose-600 cursor-pointer shadow-[0_8px_20px_rgba(236,72,153,0.4)]'
-            }
+          fixed z-50 w-[22.5rem] transition-all duration-300 ease-spring
+          /* Mobile Styles (Full height, flush) */
+          inset-y-0 left-0 
+          
+          /* Desktop Styles (Floating Card) */
+          md:top-4 md:bottom-4 md:left-4 md:h-[calc(100vh-2rem)]
+          md:rounded-[2rem] md:border md:border-gray-200 md:dark:border-white/10
+          md:shadow-[0_40px_80px_-15px_rgba(0,0,0,0.2)] md:dark:shadow-[0_40px_80px_-15px_rgba(0,0,0,0.7)]
+          
+          /* Background & Blur */
+          bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl
+          
+          /* State Transform */
+          ${isOpen ? 'translate-x-0' : '-translate-x-[120%]'}
         `}
       >
-        <div className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${isOpen ? 'opacity-0 pointer-events-none' : 'opacity-100 delay-100'}`}>
-            <Menu className="text-white" strokeWidth={2.5} size={24} />
-        </div>
-        <div className={`absolute inset-0 w-full h-full transition-opacity duration-300 ${isOpen ? 'opacity-100 delay-100' : 'opacity-0 pointer-events-none'}`}>
-             <SidebarContent onClose={() => setIsOpen(false)} />
+        <div className="h-full w-full overflow-hidden md:rounded-[2rem]">
+            <SidebarContent onClose={() => setIsOpen(false)} />
         </div>
       </div>
 
-      {/* 
-        ========================================
-        DESKTOP: FLOATING CARD SIDEBAR
-        ========================================
-      */}
-      <aside 
-        className={`
-          hidden md:flex flex-col
-          fixed z-50 w-80
-          top-3 bottom-3 left-3 h-[calc(100vh-1.5rem)]
-          rounded-[2rem] overflow-hidden
-          bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl 
-          border border-gray-200 dark:border-white/10 
-          shadow-2xl transition-transform duration-500 ease-spring
-          ${isOpen ? 'translate-x-0' : '-translate-x-[calc(100%+1rem)]'}
-        `}
+      {/* Mobile Toggle Button */}
+      <button
+        onClick={() => setIsOpen(true)}
+        className={`fixed top-4 left-4 z-30 p-2 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-gray-100 dark:border-white/10 md:hidden text-gray-500 hover:text-brand-500 transition-opacity duration-300 ${isOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
       >
-         <SidebarContent /> 
-      </aside>
+        <Menu size={24} />
+      </button>
     </>
   );
 };

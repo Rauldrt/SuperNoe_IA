@@ -2,24 +2,30 @@
 import { KnowledgeDocument } from '../types';
 import { STATIC_DOCUMENTS } from '../data/staticKnowledge';
 
-// CONFIGURACIÓN: Reemplaza esta URL con la ruta "Raw" de tu archivo JSON en GitHub, Gist o tu servidor.
-// Ejemplo de estructura del JSON esperado:
-// [
-//   { "id": "1", "title": "Precios", "content": "...", "addedAt": 123456, "tokensEstimated": 100, "isSystem": true }
-// ]
-const REMOTE_KNOWLEDGE_URL = 'https://gist.githubusercontent.com/usuario/id-gist/raw/noelia-db.json'; 
+export const loadSystemKnowledge = async (url: string): Promise<KnowledgeDocument[]> => {
+  // Si no hay URL configurada, devolvemos los estáticos inmediatamente
+  if (!url || url.trim() === '') {
+      console.log("⚠️ No Remote URL configured, using local defaults.");
+      return STATIC_DOCUMENTS;
+  }
 
-export const loadSystemKnowledge = async (): Promise<KnowledgeDocument[]> => {
   try {
-    console.log(`📡 Intentando cargar base de conocimiento desde: ${REMOTE_KNOWLEDGE_URL}`);
+    console.log(`📡 Intentando cargar base de conocimiento desde: ${url}`);
     
-    // Timeout de 3 segundos para no bloquear la app si la red es lenta
+    // Timeout de 5 segundos
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3000);
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-    const response = await fetch(REMOTE_KNOWLEDGE_URL, { 
+    // Agregamos un timestamp para evitar cache agresivo si NO es jsDelivr
+    // Si es jsDelivr, idealmente usamos la URL limpia, pero para desarrollo el timestamp ayuda.
+    // Para producción con jsDelivr, el usuario debería manejar versiones en la URL.
+    const fetchUrl = url.includes('jsdelivr') ? url : `${url}?t=${Date.now()}`;
+
+    const response = await fetch(fetchUrl, { 
         signal: controller.signal,
-        cache: 'no-store' // Evitar caché del navegador para obtener siempre la última versión
+        // 'no-cache' le dice al navegador que verifique con el servidor, 
+        // pero jsDelivr ignorará esto si usa su propio cache interno.
+        cache: 'no-cache' 
     });
 
     clearTimeout(timeoutId);
@@ -38,7 +44,7 @@ export const loadSystemKnowledge = async (): Promise<KnowledgeDocument[]> => {
     // Mapeo seguro para asegurar que tengan la flag isSystem
     const validDocs: KnowledgeDocument[] = data.map((doc: any) => ({
         id: doc.id || crypto.randomUUID(),
-        title: doc.title || 'Documento Remoto Sin Título',
+        title: doc.title || 'Documento Remoto',
         content: doc.content || '',
         addedAt: doc.addedAt || Date.now(),
         tokensEstimated: doc.tokensEstimated || Math.ceil((doc.content?.length || 0) / 4),

@@ -25,12 +25,18 @@ export interface ChatSession {
   updatedAt: number;
 }
 
+export interface GoogleSheetsConfig {
+  clientId: string;      // Google Cloud Console Client ID
+  spreadsheetId: string; // ID de la Hoja de Cálculo
+}
+
 export interface AppConfig {
   systemInstructions: string;
   model: string;
   thinkingBudget: number; // 0 para desactivar
   useSearchGrounding: boolean;
   strictMode: boolean; // TRUE: Solo usa documentos. FALSE: Usa conocimiento general si falta info.
+  googleSheets: GoogleSheetsConfig; // Configuración para Sheets
 }
 
 export interface ToastNotification {

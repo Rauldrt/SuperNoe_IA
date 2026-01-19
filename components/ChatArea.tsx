@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useGemini } from '../context/GeminiContext';
 import { Send, User, FileText, Loader2, MessageCircle, HelpCircle, X, ShoppingBag, ChefHat, Sparkles, Tag, Utensils, Search } from 'lucide-react';
@@ -69,7 +70,7 @@ const ChatArea: React.FC<{ sidebarOpen: boolean }> = ({ sidebarOpen }) => {
   ];
 
   return (
-    <div className={`flex flex-col h-full transition-all duration-300 relative ${sidebarOpen ? 'md:ml-[22.5rem]' : 'ml-0'}`}>
+    <div className={`flex flex-col h-full transition-all duration-300 relative ${sidebarOpen ? 'md:ml-[24rem]' : 'ml-0'}`}>
       
       {/* Help FAB (Floating Action Button) */}
       <div className="absolute top-4 right-4 z-30">
@@ -272,7 +273,7 @@ const ChatArea: React.FC<{ sidebarOpen: boolean }> = ({ sidebarOpen }) => {
 
       {/* Input Area - Redesigned Floating Capsule */}
       <div className="p-4 md:p-6 bg-transparent">
-        <div className="max-w-4xl mx-auto relative aurora-container rounded-[2rem] shadow-2xl shadow-gray-200/50 dark:shadow-black/50 hover:shadow-brand-500/10 transition-shadow duration-300">
+        <div className="max-w-4xl mx-auto relative aurora-container rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.2)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.6)] hover:shadow-brand-500/30 transition-shadow duration-300">
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}

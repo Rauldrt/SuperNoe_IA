@@ -4,13 +4,12 @@ import { AppConfig, KnowledgeDocument, Message, ToastNotification, ChatSession, 
 import { prepareContext } from '../utils/ragEngine';
 import { generateStreamResponse } from '../services/geminiService';
 import { STATIC_DOCUMENTS } from '../data/staticKnowledge'; // Mantenemos import para inicialización rápida
-import { loadSystemKnowledge } from '../services/knowledgeLoader';
 
 interface GeminiContextProps {
   documents: KnowledgeDocument[];
   addDocument: (title: string, content: string) => void;
   removeDocument: (id: string) => void;
-  refreshSystemKnowledge: () => Promise<void>; // Nueva función expuesta
+  setSystemKnowledge: (docs: KnowledgeDocument[]) => void;
   isLoadingKnowledge: boolean;
   
   messages: Message[];
@@ -58,30 +57,52 @@ export const GeminiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   });
 
-  // --- Estado: Documentos de Sistema (Remotos o Estáticos) ---
-  // Inicializamos con STATIC_DOCUMENTS para tener datos inmediatos mientras carga lo remoto
-  const [systemDocuments, setSystemDocuments] = useState<KnowledgeDocument[]>(STATIC_DOCUMENTS);
-  const [isLoadingKnowledge, setIsLoadingKnowledge] = useState(false);
-
-  // --- Efecto: Cargar Datos Remotos al Inicio ---
-  useEffect(() => {
-    refreshSystemKnowledge();
-  }, []);
-
-  const refreshSystemKnowledge = async () => {
-    setIsLoadingKnowledge(true);
+  // --- Estado: Configuración (Local Storage) ---
+  const [config, setConfig] = useState<AppConfig>(() => {
     try {
-        const docs = await loadSystemKnowledge();
-        setSystemDocuments(docs);
-        // Opcional: Mostrar toast si cambia algo, pero mejor ser silencioso al inicio
+      const saved = localStorage.getItem('gem_config');
+      const parsed = saved ? JSON.parse(saved) : {};
+      
+      return {
+        systemInstructions: parsed.systemInstructions || 'Eres el asistente IA de Noelia Supermercado. Tu objetivo es ayudar con información precisa basada en los documentos provistos. REGLA VISUAL: Siempre que listes precios o productos, utiliza Tablas Markdown.',
+        model: parsed.model || DEFAULT_MODEL,
+        thinkingBudget: parsed.thinkingBudget || 0,
+        useSearchGrounding: parsed.useSearchGrounding || false,
+        strictMode: parsed.strictMode !== undefined ? parsed.strictMode : true,
+        googleSheets: { 
+            clientId: parsed.googleSheets?.clientId || '',
+            spreadsheetId: parsed.googleSheets?.spreadsheetId || '' 
+        }
+      };
     } catch (e) {
-        console.error(e);
-    } finally {
-        setIsLoadingKnowledge(false);
+      return {
+        systemInstructions: 'Eres un asistente útil.',
+        model: DEFAULT_MODEL,
+        thinkingBudget: 0,
+        useSearchGrounding: false,
+        strictMode: true,
+        googleSheets: { clientId: '', spreadsheetId: '' }
+      };
     }
+  });
+
+  // --- Estado: Documentos de Sistema (Sheets o Estáticos) ---
+  const [systemDocuments, setSystemDocuments] = useState<KnowledgeDocument[]>(() => {
+     try {
+        const saved = localStorage.getItem('gem_sys_docs');
+        return saved ? JSON.parse(saved) : STATIC_DOCUMENTS;
+     } catch {
+        return STATIC_DOCUMENTS;
+     }
+  });
+
+  // Función para inyectar lo bajado de Sheets
+  const setSystemKnowledge = (docs: KnowledgeDocument[]) => {
+    setSystemDocuments(docs);
+    localStorage.setItem('gem_sys_docs', JSON.stringify(docs));
   };
 
-  // Los documentos totales son la suma de los del sistema (actualizados) y los locales
+  // Los documentos totales son la suma de los del sistema y los locales
   const documents = [...systemDocuments, ...localDocuments];
 
   // --- Estado: Chat Actual ---
@@ -108,28 +129,6 @@ export const GeminiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return saved ? JSON.parse(saved) : [];
     } catch (e) {
       return [];
-    }
-  });
-
-  // --- Estado: Configuración (Local Storage) ---
-  const [config, setConfig] = useState<AppConfig>(() => {
-    try {
-      const saved = localStorage.getItem('gem_config');
-      return saved ? JSON.parse(saved) : {
-        systemInstructions: 'Eres el asistente IA de Noelia Supermercado. Tu objetivo es ayudar con información precisa basada en los documentos provistos. REGLA VISUAL: Siempre que listes precios o productos, utiliza Tablas Markdown.',
-        model: DEFAULT_MODEL,
-        thinkingBudget: 0,
-        useSearchGrounding: false,
-        strictMode: true
-      };
-    } catch (e) {
-      return {
-        systemInstructions: 'Eres un asistente útil.',
-        model: DEFAULT_MODEL,
-        thinkingBudget: 0,
-        useSearchGrounding: false,
-        strictMode: true
-      };
     }
   });
 
@@ -273,7 +272,6 @@ export const GeminiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const removeDocument = async (id: string) => {
-    // Check if it's a system doc (ya sea estático o remoto)
     if (systemDocuments.some(d => d.id === id)) {
         addToast('error', 'No puedes eliminar documentos del sistema.');
         return;
@@ -349,7 +347,7 @@ export const GeminiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   return (
     <GeminiContext.Provider value={{
-      documents, addDocument, removeDocument, refreshSystemKnowledge, isLoadingKnowledge,
+      documents, addDocument, removeDocument, setSystemKnowledge, isLoadingKnowledge: false,
       messages, sendMessage, isTyping,
       sessions, activeSessionId, createNewChat, loadSession, deleteSession, clearHistory,
       config, updateConfig,
