@@ -25,18 +25,13 @@ export interface ChatSession {
   updatedAt: number;
 }
 
-export interface GoogleSheetsConfig {
-  clientId: string;      // Google Cloud Console Client ID
-  spreadsheetId: string; // ID de la Hoja de Cálculo
-}
-
 export interface AppConfig {
   systemInstructions: string;
   model: string;
   thinkingBudget: number; // 0 para desactivar
   useSearchGrounding: boolean;
   strictMode: boolean; // TRUE: Solo usa documentos. FALSE: Usa conocimiento general si falta info.
-  googleSheets: GoogleSheetsConfig; // Configuración para Sheets
+  publicCsvUrl: string; // URL pública del CSV de Google Sheets (Publicar en la web)
 }
 
 export interface ToastNotification {
@@ -50,3 +45,8 @@ export type Theme = 'light' | 'dark' | 'system';
 // Model Constants
 export const DEFAULT_MODEL = 'gemini-3-flash-preview';
 export const REASONING_MODEL = 'gemini-3-pro-preview';
+
+// --- CONFIGURACIÓN DE DATOS DEFAULT ---
+// Pega aquí la URL de tu Google Sheet (Archivo > Compartir > Publicar en la web > CSV)
+// Esta será la URL por defecto para todos los usuarios nuevos.
+export const DEFAULT_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ...TU_ID_AQUI.../pub?output=csv";

@@ -13,6 +13,7 @@ const firebaseConfig = {
 };
 
 // Inicialización de la App
+// Fix: Use named import 'initializeApp' directly as 'firebaseApp' namespace import causes type issues in v9+
 const app = initializeApp(firebaseConfig);
 
 // Inicialización de la Base de Datos
