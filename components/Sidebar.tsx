@@ -219,6 +219,7 @@ const SidebarContent: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
                                 <li><b>Precios:</b> Se actualizan editando el Google Sheet (online). El bot los lee automáticamente.</li>
                                 <li><b>URL del CSV:</b> Fija en código (<code>types.ts</code>).</li>
                                 <li><b>Políticas y Horarios:</b> Fijos en código (<code>data/staticKnowledge.ts</code>).</li>
+                                <li><b>Instrucciones IA:</b> Para cambiar el comportamiento por defecto, editar en código: <code>context/GeminiContext.tsx</code>.</li>
                             </ul>
                         </div>
 

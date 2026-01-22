@@ -72,7 +72,7 @@ export const GeminiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const parsed = saved ? JSON.parse(saved) : {};
       
       return {
-        systemInstructions: parsed.systemInstructions || 'Eres el asistente IA de Noelia Supermercado. Tu objetivo es ayudar con información precisa basada en los documentos provistos. REGLA VISUAL: Siempre que listes precios o productos, utiliza Tablas Markdown.',
+        systemInstructions: parsed.systemInstructions || 'Eres el asistente IA de Noelia Supermercado. Tu objetivo es ayudar con información precisa basada en los documentos provistos. REGLA VISUAL: Siempre que listes precios o productos, no utilices Tablas Markdown.',
         model: parsed.model || DEFAULT_MODEL,
         thinkingBudget: parsed.thinkingBudget || 0,
         useSearchGrounding: parsed.useSearchGrounding || false,

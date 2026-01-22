@@ -1,4 +1,4 @@
-import { initializeApp } from 'firebase/app';
+import * as firebaseApp from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 
 // --- CONFIGURACIÓN DE FIREBASE ---
@@ -13,8 +13,8 @@ const firebaseConfig = {
 };
 
 // Inicialización de la App
-// Fix: Use named import 'initializeApp' directly as 'firebaseApp' namespace import causes type issues in v9+
-const app = initializeApp(firebaseConfig);
+// Used namespace import to resolve TS error "Module 'firebase/app' has no exported member 'initializeApp'"
+const app = firebaseApp.initializeApp(firebaseConfig);
 
 // Inicialización de la Base de Datos
 const db = getFirestore(app);

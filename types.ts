@@ -49,4 +49,4 @@ export const REASONING_MODEL = 'gemini-3-pro-preview';
 // --- CONFIGURACIÓN DE DATOS DEFAULT ---
 // Pega aquí la URL de tu Google Sheet (Archivo > Compartir > Publicar en la web > CSV)
 // Esta será la URL por defecto para todos los usuarios nuevos.
-export const DEFAULT_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ...TU_ID_AQUI.../pub?output=csv";
+export const DEFAULT_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS8v6EfTn5QfJPDmaCZRfFaAmkdopFrYPBh9N0s3ifH3_q257I_zgXxNz-GJUByuQbAgc0kfeXLZEJZ/pub?gid=1147648108&single=true&output=csv";
